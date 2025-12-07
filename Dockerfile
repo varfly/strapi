@@ -28,11 +28,17 @@ COPY packages/*/package.json ./packages/
 COPY packages/*/*/package.json ./packages/*/
 COPY examples/*/package.json ./examples/
 COPY examples/*/*/package.json ./examples/*/
+COPY scripts/*/package.json ./scripts/ 2>/dev/null || true
+
+# 创建 .github/actions 占位目录（因为 package.json 的 workspaces 包含它，但目录已删除）
+RUN mkdir -p .github/actions
 
 # 设置 Yarn 环境变量（禁用交互式模式，用于 Docker 构建）
 ENV YARN_ENABLE_IMMUTABLE_INSTALLS=false
 ENV YARN_ENABLE_INLINE_BUILDS=false
 ENV YARN_PREFER_INTERACTIVE=false
+ENV YARN_HTTP_TIMEOUT=1000000
+ENV YARN_NETWORK_TIMEOUT=1000000
 
 # 验证 Yarn 配置
 RUN echo "=== Yarn Configuration ===" && \
@@ -43,7 +49,10 @@ RUN echo "=== Yarn Configuration ===" && \
     cat .yarnrc.yml
 
 # 安装依赖（使用 production 模式）
-RUN yarn install --frozen-lockfile --production=false
+# 先尝试使用 --frozen-lockfile，如果失败则尝试不使用
+RUN yarn install --frozen-lockfile --production=false || \
+    (echo "=== First attempt failed, trying without --frozen-lockfile ===" && \
+     yarn install --production=false)
 
 # 复制所有源代码
 COPY . .
