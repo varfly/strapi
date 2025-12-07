@@ -6,7 +6,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # 安装系统依赖
-RUN apk add --no-cache \
+RUN apk update && apk add --no-cache \
     python3 \
     make \
     g++ \
@@ -38,7 +38,7 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # 安装运行时依赖
-RUN apk add --no-cache \
+RUN apk update && apk add --no-cache \
     dumb-init \
     curl \
     ca-certificates
