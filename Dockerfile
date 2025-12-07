@@ -28,10 +28,10 @@ COPY packages/*/package.json ./packages/
 COPY packages/*/*/package.json ./packages/*/
 COPY examples/*/package.json ./examples/
 COPY examples/*/*/package.json ./examples/*/
-COPY scripts/*/package.json ./scripts/ 2>/dev/null || true
 
-# 创建 .github/actions 占位目录（因为 package.json 的 workspaces 包含它，但目录已删除）
-RUN mkdir -p .github/actions
+# 创建必要的目录结构（用于 workspace 配置）
+RUN mkdir -p .github/actions && \
+    mkdir -p scripts
 
 # 设置 Yarn 环境变量（禁用交互式模式，用于 Docker 构建）
 ENV YARN_ENABLE_IMMUTABLE_INSTALLS=false
