@@ -5,15 +5,15 @@ FROM node:20-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
-# 启用 corepack 以支持 Yarn 4
-RUN corepack enable && corepack prepare yarn@4.5.0 --activate
-
 # 安装系统依赖
 RUN apk update && apk add --no-cache \
     python3 \
     make \
     g++ \
     git
+
+# 启用 corepack 以支持 Yarn 4
+RUN corepack enable && corepack prepare yarn@4.5.0 --activate
 
 # 复制 package.json 和 yarn.lock
 COPY package.json yarn.lock ./
@@ -30,36 +30,11 @@ ENV YARN_PREFER_INTERACTIVE=false
 ENV YARN_HTTP_TIMEOUT=1000000
 ENV YARN_NETWORK_TIMEOUT=1000000
 
-# 复制所有源代码（包括所有 workspace 配置）
+# 复制所有源代码
 COPY . .
 
-# 验证 Yarn 配置和环境
-RUN echo "=== Yarn Configuration ===" && \
-    yarn --version && \
-    echo "Yarn path from config:" && \
-    (yarn config get yarnPath 2>/dev/null || echo "Using default yarn") && \
-    echo "Yarnrc.yml content:" && \
-    cat .yarnrc.yml && \
-    echo "=== Workspace structure ===" && \
-    echo "Packages:" && ls -la packages/ | head -10 && \
-    echo "Examples:" && ls -la examples/ | head -5
-
-# 安装依赖（使用 production 模式）
-# 添加详细输出以便调试
-RUN set -x && \
-    echo "=== Starting yarn install ===" && \
-    echo "Working directory: $(pwd)" && \
-    echo "Yarn version:" && yarn --version && \
-    echo "Node version:" && node --version && \
-    echo "=== Attempting yarn install ===" && \
-    yarn install --frozen-lockfile --production=false 2>&1 || \
-    (echo "=== First attempt failed, trying without --frozen-lockfile ===" && \
-     yarn install --production=false 2>&1 || \
-     (echo "=== Both attempts failed ===" && \
-      echo "Checking for common issues..." && \
-      echo "yarn.lock exists:" && test -f yarn.lock && echo "yes" || echo "no" && \
-      echo ".yarn directory:" && ls -la .yarn/ 2>&1 || echo "not found" && \
-      exit 1))
+# 安装依赖（不使用 --frozen-lockfile，因为可能在某些情况下会有问题）
+RUN yarn install --production=false
 
 # 构建项目
 RUN yarn build
@@ -85,6 +60,8 @@ COPY --from=builder --chown=strapi:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=strapi:nodejs /app/package.json ./
 COPY --from=builder --chown=strapi:nodejs /app/packages ./packages
 COPY --from=builder --chown=strapi:nodejs /app/dist ./dist
+COPY --from=builder --chown=strapi:nodejs /app/.yarn .yarn
+COPY --from=builder --chown=strapi:nodejs /app/.yarnrc.yml ./
 
 # 设置环境变量
 ENV NODE_ENV=production
@@ -101,4 +78,3 @@ ENTRYPOINT ["dumb-init", "--"]
 
 # 启动命令
 CMD ["node", "packages/core/strapi/dist/cli.js", "start"]
-
