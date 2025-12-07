@@ -5,6 +5,9 @@ FROM node:20-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
+# 启用 corepack 以支持 Yarn 4
+RUN corepack enable && corepack prepare yarn@4.5.0 --activate
+
 # 安装系统依赖
 RUN apk update && apk add --no-cache \
     python3 \
@@ -15,6 +18,10 @@ RUN apk update && apk add --no-cache \
 # 复制 package.json 和 yarn.lock
 COPY package.json yarn.lock ./
 COPY lerna.json ./
+COPY .yarnrc.yml ./
+
+# 复制 Yarn 二进制文件和配置
+COPY .yarn .yarn
 
 # 复制所有包的 package.json（用于依赖解析）
 COPY packages/*/package.json ./packages/
