@@ -23,16 +23,6 @@ COPY .yarnrc.yml ./
 # 复制 Yarn 二进制文件和配置
 COPY .yarn .yarn
 
-# 复制所有包的 package.json（用于依赖解析）
-COPY packages/*/package.json ./packages/
-COPY packages/*/*/package.json ./packages/*/
-COPY examples/*/package.json ./examples/
-COPY examples/*/*/package.json ./examples/*/
-
-# 创建必要的目录结构（用于 workspace 配置）
-RUN mkdir -p .github/actions && \
-    mkdir -p scripts
-
 # 设置 Yarn 环境变量（禁用交互式模式，用于 Docker 构建）
 ENV YARN_ENABLE_IMMUTABLE_INSTALLS=false
 ENV YARN_ENABLE_INLINE_BUILDS=false
@@ -40,22 +30,36 @@ ENV YARN_PREFER_INTERACTIVE=false
 ENV YARN_HTTP_TIMEOUT=1000000
 ENV YARN_NETWORK_TIMEOUT=1000000
 
-# 验证 Yarn 配置
+# 复制所有源代码（包括所有 workspace 配置）
+COPY . .
+
+# 验证 Yarn 配置和环境
 RUN echo "=== Yarn Configuration ===" && \
     yarn --version && \
     echo "Yarn path from config:" && \
     (yarn config get yarnPath 2>/dev/null || echo "Using default yarn") && \
     echo "Yarnrc.yml content:" && \
-    cat .yarnrc.yml
+    cat .yarnrc.yml && \
+    echo "=== Workspace structure ===" && \
+    echo "Packages:" && ls -la packages/ | head -10 && \
+    echo "Examples:" && ls -la examples/ | head -5
 
 # 安装依赖（使用 production 模式）
-# 先尝试使用 --frozen-lockfile，如果失败则尝试不使用
-RUN yarn install --frozen-lockfile --production=false || \
+# 添加详细输出以便调试
+RUN set -x && \
+    echo "=== Starting yarn install ===" && \
+    echo "Working directory: $(pwd)" && \
+    echo "Yarn version:" && yarn --version && \
+    echo "Node version:" && node --version && \
+    echo "=== Attempting yarn install ===" && \
+    yarn install --frozen-lockfile --production=false 2>&1 || \
     (echo "=== First attempt failed, trying without --frozen-lockfile ===" && \
-     yarn install --production=false)
-
-# 复制所有源代码
-COPY . .
+     yarn install --production=false 2>&1 || \
+     (echo "=== Both attempts failed ===" && \
+      echo "Checking for common issues..." && \
+      echo "yarn.lock exists:" && test -f yarn.lock && echo "yes" || echo "no" && \
+      echo ".yarn directory:" && ls -la .yarn/ 2>&1 || echo "not found" && \
+      exit 1))
 
 # 构建项目
 RUN yarn build
