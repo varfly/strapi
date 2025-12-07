@@ -29,6 +29,19 @@ COPY packages/*/*/package.json ./packages/*/
 COPY examples/*/package.json ./examples/
 COPY examples/*/*/package.json ./examples/*/
 
+# 设置 Yarn 环境变量（禁用交互式模式，用于 Docker 构建）
+ENV YARN_ENABLE_IMMUTABLE_INSTALLS=false
+ENV YARN_ENABLE_INLINE_BUILDS=false
+ENV YARN_PREFER_INTERACTIVE=false
+
+# 验证 Yarn 配置
+RUN echo "=== Yarn Configuration ===" && \
+    yarn --version && \
+    echo "Yarn path from config:" && \
+    (yarn config get yarnPath 2>/dev/null || echo "Using default yarn") && \
+    echo "Yarnrc.yml content:" && \
+    cat .yarnrc.yml
+
 # 安装依赖（使用 production 模式）
 RUN yarn install --frozen-lockfile --production=false
 
